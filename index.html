@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <meta charset="utf-8">
         <meta http-equiv="Cache-Control" content="no-cache">
@@ -12,16 +12,15 @@
         <link rel="apple-touch-icon" href="logo.png">
         <link rel="icon" href="logo.png">
 
-        <title>WebGL Fluid Simulation</title>
-        <meta name="description" content="A WebGL fluid simulation that works in mobile browsers.">
+        <title>Webcam Fluid Simulation</title>
+        <meta name="description" content="Stir a WebGL fluid simulation with webcam motion, edges, mouse, or touch.">
 
         <meta property="og:type" content="website">
-        <meta property="og:title" content="Webgl Fluid Simulation">
-        <meta property="og:description" content="A WebGL fluid simulation that works in mobile browsers.">
-        <meta property="og:url" content="https://paveldogreat.github.io/WebGL-Fluid-Simulation/">
-        <meta property="og:image" content="https://paveldogreat.github.io/WebGL-Fluid-Simulation/logo.png">
+        <meta property="og:title" content="Webcam Fluid Simulation">
+        <meta property="og:description" content="Stir fluid with webcam motion and edges.">
 
         <script type="text/javascript" src="dat.gui.min.js"></script>
+        <link rel="stylesheet" href="webcam.css">
         <style>
             @font-face {
                 font-family: 'iconfont';
@@ -197,6 +196,32 @@
     <body>
         <canvas></canvas>
 
+        <section id="camera-panel" aria-labelledby="camera-heading">
+            <h1 id="camera-heading">Webcam fluid</h1>
+            <p>Turn movement or outlines into flowing color.</p>
+            <button id="camera-toggle" type="button" aria-pressed="false">Enable camera</button>
+            <p id="camera-status" role="status">Camera off. Video is processed locally on this device.</p>
+            <label for="camera-mode">Filter module</label>
+            <select id="camera-mode">
+                <option value="motion">Motion — react to movement</option>
+                <option value="edges">Edges — trace outlines</option>
+            </select>
+            <label for="camera-sensitivity">Sensitivity <output id="camera-sensitivity-value" for="camera-sensitivity">65</output></label>
+            <input id="camera-sensitivity" type="range" min="0" max="100" value="65">
+            <label for="camera-force">Force <output id="camera-force-value" for="camera-force">1</output></label>
+            <input id="camera-force" type="range" min="0" max="3" step="0.1" value="1">
+            <div id="camera-previews" hidden>
+                <figure>
+                    <video id="camera-video" autoplay muted playsinline aria-label="Mirrored webcam preview"></video>
+                    <figcaption>Mirrored camera</figcaption>
+                </figure>
+                <figure>
+                    <canvas id="camera-filter" width="96" height="72" aria-label="Detected filter signal"></canvas>
+                    <figcaption>Fluid sources</figcaption>
+                </figure>
+            </div>
+        </section>
+
         <!-- Mother of God, pls forgive me -->
         <div class="promo">
             <div class="promo-middle">
@@ -219,6 +244,8 @@
             </div>
         </div>
 
+        <script src="./camera-filters.js"></script>
+        <script src="./webcam.js"></script>
         <script src="./script.js"></script>
     </body>
 </html>

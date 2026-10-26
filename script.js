@@ -29,12 +29,6 @@ SOFTWARE.
 const promoPopup = document.getElementsByClassName('promo')[0];
 const promoPopupClose = document.getElementsByClassName('promo-close')[0];
 
-if (isMobile()) {
-    setTimeout(() => {
-        promoPopup.style.display = 'table';
-    }, 20000);
-}
-
 promoPopupClose.addEventListener('click', e => {
     promoPopup.style.display = 'none';
 });
@@ -237,7 +231,7 @@ function startGUI () {
     captureFolder.add({ fun: captureScreenshot }, 'fun').name('take screenshot');
 
     let github = gui.add({ fun : () => {
-        window.open('https://github.com/PavelDoGreat/WebGL-Fluid-Simulation');
+        window.open('https://github.com/Stell0/WebGL-Fluid-Simulation');
         ga('send', 'event', 'link button', 'github');
     } }, 'fun').name('Github');
     github.__li.className = 'cr function bigFont';
@@ -276,7 +270,7 @@ function startGUI () {
     app.domElement.parentElement.appendChild(appIcon);
     appIcon.className = 'icon app';
 
-    if (isMobile())
+    if (isMobile() || window.innerWidth < 640)
         gui.close();
 }
 
@@ -1171,6 +1165,15 @@ multipleSplats(parseInt(Math.random() * 20) + 5);
 
 let lastUpdateTime = Date.now();
 let colorUpdateTimer = 0.0;
+const webcam = new WebcamInput((point, force) => {
+    if (force === 0) return;
+    const color = generateColor();
+    const intensity = point.strength * force;
+    color.r *= intensity * 0.3;
+    color.g *= intensity * 0.3;
+    color.b *= intensity * 0.3;
+    splat(point.x, point.y, point.dx * 500 * intensity, point.dy * 500 * intensity, color);
+});
 update();
 
 function update () {
@@ -1179,6 +1182,7 @@ function update () {
         initFramebuffers();
     updateColors(dt);
     applyInputs();
+    webcam.update(performance.now(), config.PAUSED);
     if (!config.PAUSED)
         step(dt);
     render(null);
@@ -1517,6 +1521,7 @@ window.addEventListener('touchend', e => {
 });
 
 window.addEventListener('keydown', e => {
+    if (/^(INPUT|SELECT|BUTTON|TEXTAREA)$/.test(e.target.tagName)) return;
     if (e.code === 'KeyP')
         config.PAUSED = !config.PAUSED;
     if (e.key === ' ')
