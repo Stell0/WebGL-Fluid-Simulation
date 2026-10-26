@@ -16,13 +16,14 @@ Camera access requires localhost or HTTPS; a plain HTTP address on your LAN will
 ## Webcam controls
 
 - **Motion** compares successive blurred grayscale frames. Moving regions inject color and force, with direction estimated from local image gradients. The first frame calibrates without triggering fluid.
+- **Motion smoothing** has **Smooth** and **Direct** radio buttons. Smooth is enabled by default: it eases positions, direction, and strength over about 100 ms and spreads smaller pushes across animation frames. When motion stops, the remaining force fades by about 95% over 240 ms. Direct restores the original unsmoothed camera impulses. Switching modes clears pending forces.
 - **Sensitivity** increases detection of subtle movement. Lower it if sensor noise or lighting changes cause too much activity.
 - **Force** adjusts the strength of the webcam's color and velocity injection; zero disables injection while keeping the preview running.
 - The two previews show your mirrored camera and the detected signal. The whole camera image maps to the whole fluid canvas, so positions align but proportions may differ with the window shape.
 - **Stop camera** releases the webcam. Mouse and touch input, the original simulation settings, and the **P** pause shortcut remain available. Camera injection pauses with the simulation; the preview continues.
 - **Close Controls** and **Open Controls** hide and show both the fluid controls and webcam panel together. The camera keeps controlling the fluid while the panels are closed. Use **Stop camera** before closing if you want to release it. The **H** shortcut also hides both panels.
 
-Video is processed on this device using a small Canvas 2D image. No audio is requested and no video is uploaded or recorded. Detection runs at most 20 times per second and injects at most 12 sources per update to limit GPU work. Motion detection reacts to lighting changes and camera movement too; use a steady camera and stable lighting.
+Video is processed on this device using a small Canvas 2D image. No audio is requested and no video is uploaded or recorded. Detection runs at most 20 times per second. Smooth mode injects at most 12 sources per animation frame and scales force and dye by elapsed time; Direct injects at most 12 sources per camera update. Pausing, stopping the camera, or hiding the browser tab clears smoothed forces. If camera frames stall, the last motion expires and fades out. Motion detection reacts to lighting changes and camera movement too; use a steady camera and stable lighting.
 
 ## Checks and implementation
 
@@ -30,7 +31,7 @@ Video is processed on this device using a small Canvas 2D image. No audio is req
 node --test tests/*.test.cjs
 ```
 
-`camera-filters.js` contains motion detection, `webcam.js` owns camera access and previews, and `script.js` feeds their output into the existing fluid `splat` function.
+`camera-filters.js` contains motion detection, `motion-smoother.js` smooths sources by image cell and normalizes per-frame impulses, `webcam.js` owns camera access and previews, and `script.js` feeds their output into the existing fluid `splat` function.
 
 [Original demo](https://paveldogreat.github.io/WebGL-Fluid-Simulation/)
 

@@ -66,6 +66,7 @@ class CameraFilters {
                 const dx = Math.max(-2, Math.min(2, gx * scale));
                 const dy = Math.max(-2, Math.min(2, -gy * scale));
                 cells.set(cell, {
+                    cell,
                     x: (x + 0.5) / width,
                     y: 1 - (y + 0.5) / height,
                     dx, dy, signal,

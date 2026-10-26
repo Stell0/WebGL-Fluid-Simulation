@@ -10,6 +10,8 @@ class WebcamInput {
         this.context = this.capture.getContext('2d', { willReadFrequently: true });
         this.button = document.getElementById('camera-toggle');
         this.status = document.getElementById('camera-status');
+        this.smooth = document.getElementById('camera-smooth-on');
+        this.smoother = new MotionSmoother();
         this.sensitivity = document.getElementById('camera-sensitivity');
         this.force = document.getElementById('camera-force');
         this.stream = null;
@@ -22,12 +24,20 @@ class WebcamInput {
             if (this.stream || this.starting) this.stop();
             else this.start();
         });
+        document.querySelectorAll('input[name="camera-smoothing"]').forEach(input => {
+            input.addEventListener('change', () => {
+                this.smoother.reset();
+                this.filters?.reset();
+                this.lastVideoTime = -1;
+            });
+        });
         for (const input of [this.sensitivity, this.force]) {
             input.addEventListener('input', () => {
                 document.getElementById(input.id + '-value').value = input.value;
             });
         }
         document.addEventListener('visibilitychange', () => {
+            this.smoother.reset();
             this.filters?.reset();
             this.lastVideoTime = -1;
         });
@@ -64,6 +74,7 @@ class WebcamInput {
             this.capture.width = this.preview.width = width;
             this.capture.height = this.preview.height = height;
             this.filters = new CameraFilters(width, height);
+            this.smoother.reset();
             this.previewImage = this.previewContext.createImageData(width, height);
             this.lastFrame = 0;
             this.lastVideoTime = -1;
@@ -91,6 +102,7 @@ class WebcamInput {
         this.video.pause();
         this.video.srcObject = null;
         this.filters?.reset();
+        this.smoother.reset();
         this.previewContext.clearRect(0, 0, this.preview.width, this.preview.height);
         document.getElementById('camera-previews').hidden = true;
         this.button.textContent = 'Enable camera';
@@ -99,27 +111,39 @@ class WebcamInput {
     }
 
     update (now, paused) {
-        if (!this.stream || this.starting || document.hidden || this.video.readyState < 2) return;
-        if (now - this.lastFrame < 50 || this.video.currentTime === this.lastVideoTime) return;
-        this.lastFrame = now;
-        this.lastVideoTime = this.video.currentTime;
+        if (!this.stream || this.starting || document.hidden || this.video.readyState < 2) {
+            this.smoother.reset();
+            return;
+        }
+        if (paused) this.smoother.reset();
         try {
-            const { width, height } = this.capture;
-            // Mirror pixels before filtering so the preview and fluid share coordinates.
-            this.context.setTransform(-1, 0, 0, 1, width, 0);
-            this.context.drawImage(this.video, 0, 0, width, height);
-            const rgba = this.context.getImageData(0, 0, width, height).data;
-            const threshold = 2 + (100 - Number(this.sensitivity.value)) * 0.6;
-            const { mask, points } = this.filters.process(rgba, threshold);
-            this.previewImage.data.set(mask);
-            this.previewContext.putImageData(this.previewImage, 0, 0);
-            if (paused || !points.length) return;
-            const count = Math.min(12, points.length);
-            for (let i = 0; i < count; i++) {
-                const point = points[(this.offset + Math.floor(i * points.length / count)) % points.length];
-                this.inject(point, Number(this.force.value));
+            if (now - this.lastFrame >= 50 && this.video.currentTime !== this.lastVideoTime) {
+                this.lastFrame = now;
+                this.lastVideoTime = this.video.currentTime;
+                const { width, height } = this.capture;
+                // Mirror pixels before filtering so the preview and fluid share coordinates.
+                this.context.setTransform(-1, 0, 0, 1, width, 0);
+                this.context.drawImage(this.video, 0, 0, width, height);
+                const rgba = this.context.getImageData(0, 0, width, height).data;
+                const threshold = 2 + (100 - Number(this.sensitivity.value)) * 0.6;
+                const { mask, points } = this.filters.process(rgba, threshold);
+                this.previewImage.data.set(mask);
+                this.previewContext.putImageData(this.previewImage, 0, 0);
+                if (!paused) {
+                    if (this.smooth.checked) this.smoother.setTargets(points, now);
+                    else {
+                        const count = Math.min(12, points.length);
+                        for (let i = 0; i < count; i++) {
+                            const point = points[(this.offset + Math.floor(i * points.length / count)) % points.length];
+                            this.inject(point, Number(this.force.value));
+                        }
+                        if (points.length) this.offset = (this.offset + 1) % points.length;
+                    }
+                }
             }
-            this.offset = (this.offset + 1) % points.length;
+            if (!paused && this.smooth.checked) {
+                for (const point of this.smoother.sample(now)) this.inject(point, Number(this.force.value));
+            }
         } catch (error) {
             this.stop('Camera processing failed. Enable the camera to try again.');
         }

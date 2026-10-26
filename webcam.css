@@ -31,6 +31,10 @@
 #camera-panel button:hover { background: #197e95; }
 #camera-panel label { display: block; margin-top: 10px; }
 #camera-panel input { width: 100%; margin: 5px 0 0; accent-color: #66d9ed; }
+#camera-panel .camera-smoothing { display: flex; gap: 20px; margin: 12px 0 0; padding: 8px; border: 1px solid #ffffff40; border-radius: 6px; }
+#camera-panel .camera-smoothing legend { padding: 0 4px; font-size: 12px; }
+#camera-panel .camera-smoothing label { display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; }
+#camera-panel .camera-smoothing input { width: auto; margin: 0; }
 #camera-panel output { float: right; color: #8ae1ee; }
 #camera-panel :focus-visible { outline: 2px solid #8ae1ee; outline-offset: 3px; }
 #camera-previews { display: flex; gap: 8px; margin-top: 12px; }

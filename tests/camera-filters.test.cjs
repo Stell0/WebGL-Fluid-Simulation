@@ -76,6 +76,7 @@ test('sources are spatially bounded and image Y maps to fluid Y', () => {
     const { points } = filters.process(frame((x, y) => y >= 6 ? 255 : 0), 10);
     assert.ok(points.length > 0);
     assert.ok(points.length <= Math.ceil(width / 8) * Math.ceil(height / 8));
+    assert.equal(new Set(points.map(p => p.cell)).size, points.length);
     for (const point of points) {
         assert.ok(point.x > 0 && point.x < 1);
         assert.ok(point.y > 0.6 && point.y < 0.9);
