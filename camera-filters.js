@@ -16,14 +16,14 @@ class CameraFilters {
         this.hasPrevious = false;
     }
 
-    process (rgba, mode, threshold) {
+    process (rgba, threshold) {
         const { width, height, gray, current, previous, mask } = this;
         for (let i = 0; i < gray.length; i++) {
             const p = i * 4;
             gray[i] = rgba[p] * 0.299 + rgba[p + 1] * 0.587 + rgba[p + 2] * 0.114;
         }
 
-        // A small blur suppresses camera noise before frame differencing and Sobel edges.
+        // A small blur suppresses camera noise before frame differencing.
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 let sum = 0;
@@ -49,8 +49,7 @@ class CameraFilters {
                 const gy = (-current[i - width - 1] - 2 * current[i - width] - current[i - width + 1]
                     + current[i + width - 1] + 2 * current[i + width] + current[i + width + 1]) / 8;
                 const delta = current[i] - previous[i];
-                const gradient = Math.hypot(gx, gy);
-                const signal = mode === 'edges' ? gradient : (this.hasPrevious ? Math.abs(delta) : 0);
+                const signal = this.hasPrevious ? Math.abs(delta) : 0;
                 const active = signal > threshold;
                 const p = i * 4;
                 mask[p] = active ? 70 : 0;
@@ -62,14 +61,10 @@ class CameraFilters {
                 // One source per 8x8 cell keeps a detailed scene from flooding the GPU.
                 const cell = Math.floor(y / 8) * Math.ceil(width / 8) + Math.floor(x / 8);
                 if (cells.has(cell) && cells.get(cell).signal >= signal) continue;
-                let dx = gx / (gradient || 1);
-                let dy = -gy / (gradient || 1);
-                if (mode === 'motion') {
-                    // Local brightness change estimates motion along the image gradient.
-                    const scale = -delta / (gx * gx + gy * gy + 25);
-                    dx = Math.max(-2, Math.min(2, gx * scale));
-                    dy = Math.max(-2, Math.min(2, -gy * scale));
-                }
+                // Local brightness change estimates motion along the image gradient.
+                const scale = -delta / (gx * gx + gy * gy + 25);
+                const dx = Math.max(-2, Math.min(2, gx * scale));
+                const dy = Math.max(-2, Math.min(2, -gy * scale));
                 cells.set(cell, {
                     x: (x + 0.5) / width,
                     y: 1 - (y + 0.5) / height,

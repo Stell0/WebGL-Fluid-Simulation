@@ -16,8 +16,7 @@ Camera access requires localhost or HTTPS; a plain HTTP address on your LAN will
 ## Webcam controls
 
 - **Motion** compares successive blurred grayscale frames. Moving regions inject color and force, with direction estimated from local image gradients. The first frame calibrates without triggering fluid.
-- **Edges** uses a Sobel filter to inject along visible outlines, including stationary objects.
-- **Sensitivity** increases detection of subtle changes or edges. Lower it if sensor noise or lighting changes cause too much activity.
+- **Sensitivity** increases detection of subtle movement. Lower it if sensor noise or lighting changes cause too much activity.
 - **Force** adjusts the strength of the webcam's color and velocity injection; zero disables injection while keeping the preview running.
 - The two previews show your mirrored camera and the detected signal. The whole camera image maps to the whole fluid canvas, so positions align but proportions may differ with the window shape.
 - **Stop camera** releases the webcam. Mouse and touch input, the original simulation settings, and the **P** pause shortcut remain available. Camera injection pauses with the simulation; the preview continues.
@@ -30,7 +29,7 @@ Video is processed on this device using a small Canvas 2D image. No audio is req
 node --test tests/*.test.cjs
 ```
 
-`camera-filters.js` contains the frame filters, `webcam.js` owns camera access and previews, and `script.js` feeds their output into the existing fluid `splat` function. To add a filter module, add its option to `index.html` and implement its signal and force direction in `CameraFilters.process`.
+`camera-filters.js` contains motion detection, `webcam.js` owns camera access and previews, and `script.js` feeds their output into the existing fluid `splat` function.
 
 [Original demo](https://paveldogreat.github.io/WebGL-Fluid-Simulation/)
 

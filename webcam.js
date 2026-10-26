@@ -10,7 +10,6 @@ class WebcamInput {
         this.context = this.capture.getContext('2d', { willReadFrequently: true });
         this.button = document.getElementById('camera-toggle');
         this.status = document.getElementById('camera-status');
-        this.mode = document.getElementById('camera-mode');
         this.sensitivity = document.getElementById('camera-sensitivity');
         this.force = document.getElementById('camera-force');
         this.stream = null;
@@ -23,7 +22,6 @@ class WebcamInput {
             if (this.stream || this.starting) this.stop();
             else this.start();
         });
-        this.mode.addEventListener('change', () => this.filters?.reset());
         for (const input of [this.sensitivity, this.force]) {
             input.addEventListener('input', () => {
                 document.getElementById(input.id + '-value').value = input.value;
@@ -112,7 +110,7 @@ class WebcamInput {
             this.context.drawImage(this.video, 0, 0, width, height);
             const rgba = this.context.getImageData(0, 0, width, height).data;
             const threshold = 2 + (100 - Number(this.sensitivity.value)) * 0.6;
-            const { mask, points } = this.filters.process(rgba, this.mode.value, threshold);
+            const { mask, points } = this.filters.process(rgba, threshold);
             this.previewImage.data.set(mask);
             this.previewContext.putImageData(this.previewImage, 0, 0);
             if (paused || !points.length) return;
