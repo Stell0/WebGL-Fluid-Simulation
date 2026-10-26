@@ -18,7 +18,7 @@
 
 #camera-panel h1 { margin: 0 0 4px; font-size: 18px; }
 #camera-panel p { margin: 6px 0 12px; font-size: 12px; color: #bfd1db; }
-#camera-panel button {
+#camera-panel button, #camera-panel select {
     width: 100%;
     padding: 8px;
     border: 1px solid #ffffff40;
@@ -40,12 +40,22 @@
     display: block;
     width: 100%;
     height: auto;
+    max-height: 140px;
+    object-fit: contain;
     border-radius: 4px;
     background: #000;
 }
 #camera-video { transform: scaleX(-1); }
 #camera-previews figcaption { margin-top: 4px; font-size: 11px; color: #bfd1db; }
 
+body:has(.dg.main > ul.closed) #camera-panel,
+body:has(.dg.main[style*="display: none"]) #camera-panel { display: none; }
+
 @media (max-height: 550px) {
     #camera-panel { max-height: calc(100vh - 32px); }
+}
+
+@media (max-width: 640px) {
+    #camera-panel { max-height: 60vh; }
+    .dg.main > ul:not(.closed) { max-height: calc(40vh - 40px); overflow-y: auto; }
 }
