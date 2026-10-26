@@ -208,6 +208,10 @@
             </fieldset>
             <label for="camera-sensitivity">Sensitivity <output id="camera-sensitivity-value" for="camera-sensitivity">65</output></label>
             <input id="camera-sensitivity" type="range" min="0" max="100" value="65">
+            <label for="camera-activation">Luminance activation <output id="camera-activation-value" for="camera-activation">+12</output></label>
+            <input id="camera-activation" type="range" min="-128" max="128" value="12" aria-describedby="camera-activation-hint">
+            <p id="camera-activation-hint" class="camera-metric">Offset from the last minute’s median brightness.</p>
+            <p id="camera-luminance" class="camera-metric">Enable camera to measure luminance.</p>
             <label for="camera-force">Force <output id="camera-force-value" for="camera-force">1</output></label>
             <input id="camera-force" type="range" min="0" max="3" step="0.1" value="1">
             <div id="camera-previews" hidden>
@@ -216,8 +220,8 @@
                     <figcaption>Mirrored camera</figcaption>
                 </figure>
                 <figure>
-                    <canvas id="camera-filter" width="96" height="72" aria-label="Detected filter signal"></canvas>
-                    <figcaption>Fluid sources</figcaption>
+                    <canvas id="camera-filter" width="96" height="72" aria-label="Black and white activation mask"></canvas>
+                    <figcaption>Black/white activation</figcaption>
                 </figure>
             </div>
         </section>

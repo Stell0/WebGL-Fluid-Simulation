@@ -18,6 +18,8 @@ Camera access requires localhost or HTTPS; a plain HTTP address on your LAN will
 - **Motion** compares successive blurred grayscale frames. Moving regions inject color and force, with direction estimated from local image gradients. The first frame calibrates without triggering fluid.
 - **Motion smoothing** has **Smooth** and **Direct** radio buttons. Smooth is enabled by default: it eases positions, direction, and strength over about 100 ms and spreads smaller pushes across animation frames. When motion stops, the remaining force fades by about 95% over 240 ms. Direct restores the original unsmoothed camera impulses. Switching modes clears pending forces.
 - **Sensitivity** increases detection of subtle movement. Lower it if sensor noise or lighting changes cause too much activity.
+- **Luminance activation** sets an offset from the rolling one-minute median brightness, in the 0–255 luminance scale. Positive values require brighter motion; negative values include darker motion. The live readout shows the median, the resulting activation threshold, and the initial window fill. It starts with the available frames immediately and expires samples older than 60 seconds.
+- For each frame, the luminance filter measures the median pixel brightness, then takes the median of those frame levels over the last minute. Qualifying motion becomes a black/white mask. A **3×3 spatial median** removes isolated speckles from that mask before it can trigger fluid. Bright pixels entering or leaving a region can activate motion. The activation preview shows the cleaned black/white result.
 - **Force** adjusts the strength of the webcam's color and velocity injection; zero disables injection while keeping the preview running.
 - The two previews show your mirrored camera and the detected signal. The whole camera image maps to the whole fluid canvas, so positions align but proportions may differ with the window shape.
 - **Stop camera** releases the webcam. Mouse and touch input, the original simulation settings, and the **P** pause shortcut remain available. Camera injection pauses with the simulation; the preview continues.
@@ -31,7 +33,7 @@ Video is processed on this device using a small Canvas 2D image. No audio is req
 node --test tests/*.test.cjs
 ```
 
-`camera-filters.js` contains motion detection, `motion-smoother.js` smooths sources by image cell and normalizes per-frame impulses, `webcam.js` owns camera access and previews, and `script.js` feeds their output into the existing fluid `splat` function.
+`camera-filters.js` contains the rolling luminance median, motion detection, and spatial median of the binary mask; `motion-smoother.js` smooths sources by image cell and normalizes per-frame impulses; `webcam.js` owns camera access and previews; and `script.js` feeds their output into the existing fluid `splat` function. Smooth/Direct switching preserves luminance calibration; camera restart begins a fresh window.
 
 [Original demo](https://paveldogreat.github.io/WebGL-Fluid-Simulation/)
 

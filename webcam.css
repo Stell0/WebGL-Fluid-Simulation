@@ -18,6 +18,7 @@
 
 #camera-panel h1 { margin: 0 0 4px; font-size: 18px; }
 #camera-panel p { margin: 6px 0 12px; font-size: 12px; color: #bfd1db; }
+#camera-panel .camera-metric { margin: 4px 0 0; font-size: 11px; }
 #camera-panel button {
     width: 100%;
     padding: 8px;

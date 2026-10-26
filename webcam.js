@@ -13,6 +13,8 @@ class WebcamInput {
         this.smooth = document.getElementById('camera-smooth-on');
         this.smoother = new MotionSmoother();
         this.sensitivity = document.getElementById('camera-sensitivity');
+        this.activation = document.getElementById('camera-activation');
+        this.luminanceStatus = document.getElementById('camera-luminance');
         this.force = document.getElementById('camera-force');
         this.stream = null;
         this.request = 0;
@@ -31,9 +33,9 @@ class WebcamInput {
                 this.lastVideoTime = -1;
             });
         });
-        for (const input of [this.sensitivity, this.force]) {
+        for (const input of [this.sensitivity, this.activation, this.force]) {
             input.addEventListener('input', () => {
-                document.getElementById(input.id + '-value').value = input.value;
+                document.getElementById(input.id + '-value').value = input === this.activation && Number(input.value) > 0 ? '+' + input.value : input.value;
             });
         }
         document.addEventListener('visibilitychange', () => {
@@ -108,6 +110,7 @@ class WebcamInput {
         this.button.textContent = 'Enable camera';
         this.button.setAttribute('aria-pressed', 'false');
         this.status.textContent = message;
+        this.luminanceStatus.textContent = 'Enable camera to measure luminance.';
     }
 
     update (now, paused) {
@@ -126,7 +129,8 @@ class WebcamInput {
                 this.context.drawImage(this.video, 0, 0, width, height);
                 const rgba = this.context.getImageData(0, 0, width, height).data;
                 const threshold = 2 + (100 - Number(this.sensitivity.value)) * 0.6;
-                const { mask, points } = this.filters.process(rgba, threshold);
+                const { mask, points, luminanceMedian, activationThreshold, windowSeconds } = this.filters.process(rgba, threshold, Number(this.activation.value), now);
+                this.luminanceStatus.textContent = `Median ${Math.round(luminanceMedian)} → threshold ${Math.round(activationThreshold)}/255${windowSeconds < 60 ? ` · ${Math.floor(windowSeconds)}/60 s` : ''}`;
                 this.previewImage.data.set(mask);
                 this.previewContext.putImageData(this.previewImage, 0, 0);
                 if (!paused) {

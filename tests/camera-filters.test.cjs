@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const CameraFilters = require('../camera-filters.js');
+const { RollingLuminanceMedian } = CameraFilters;
 
 const width = 32;
 const height = 24;
@@ -40,10 +41,89 @@ test('motion clears the detection preview when movement stops', () => {
     filters.process(frame(() => 0), 10);
     const moving = filters.process(image, 10);
     assert.ok(moving.points.length > 0);
-    assert.ok(moving.mask.some((v, index) => index % 4 === 1 && v === 220));
+    assert.ok(moving.mask.some((v, index) => index % 4 === 1 && v === 255));
     const stopped = filters.process(image, 10);
     assert.equal(stopped.points.length, 0);
     assert.ok(stopped.mask.every((v, index) => index % 4 === 3 || v === 0));
+});
+
+test('the one-minute median uses available samples and expires old timestamps', () => {
+    const median = new RollingLuminanceMedian();
+    assert.equal(median.add(10, 0), 10);
+    assert.equal(median.add(30, 1000), 20);
+    assert.equal(median.add(200, 2000), 30);
+    assert.equal(median.add(50, 60000), 50);
+    assert.equal(median.add(70, 62000), 60);
+    assert.equal(median.add(90, 130000), 90);
+    assert.equal(median.startedAt, 130000);
+    assert.equal(median.samples.length, 1);
+});
+
+test('the rolling median resists isolated brightness outliers', () => {
+    const median = new RollingLuminanceMedian();
+    for (const [time, value] of [100, 100, 100, 255, 0].entries()) {
+        assert.equal(median.add(value, time * 50), 100);
+    }
+});
+
+test('luminance activation follows a full sixty-second window', () => {
+    const filters = new CameraFilters(width, height);
+    const dark = frame(() => 20);
+    for (const time of [0, 1000, 2000]) filters.process(dark, 10, 12, time);
+    const flash = filters.process(frame(() => 80), 10, 12, 59000);
+    assert.equal(flash.luminanceMedian, 20);
+    assert.equal(flash.activationThreshold, 32);
+    const changed = filters.process(frame(() => 80), 10, 12, 62000);
+    assert.equal(changed.luminanceMedian, 80);
+    assert.equal(changed.activationThreshold, 92);
+    assert.equal(changed.windowSeconds, 60);
+});
+
+test('activation offset excludes dim motion while sensitivity still controls motion strength', () => {
+    const low = new CameraFilters(width, height);
+    const high = new CameraFilters(width, height);
+    const baseline = frame(() => 20);
+    const moving = frame(x => x >= 16 ? 40 : 20);
+    low.process(baseline, 5, 0, 0);
+    high.process(baseline, 5, 40, 0);
+    assert.ok(low.process(moving, 5, 0, 50).points.length > 0);
+    assert.equal(high.process(moving, 5, 40, 50).points.length, 0);
+});
+
+test('activation mask is opaque black or white on every pixel', () => {
+    const filters = new CameraFilters(width, height);
+    filters.process(frame(() => 0), 10, 12, 0);
+    const { mask, points } = filters.process(frame(x => x >= 16 ? 255 : 0), 10, 12, 50);
+    assert.ok(points.length > 0);
+    for (let p = 0; p < mask.length; p += 4) {
+        assert.ok(mask[p] === 0 || mask[p] === 255);
+        assert.equal(mask[p + 1], mask[p]);
+        assert.equal(mask[p + 2], mask[p]);
+        assert.equal(mask[p + 3], 255);
+    }
+});
+
+test('spatial median removes isolated bright speckles and preserves broad moving regions', () => {
+    const filters = new CameraFilters(width, height);
+    filters.process(frame(() => 0), 5, 12, 0);
+    const speckle = filters.process(frame((x, y) => x === 16 && y === 12 ? 255 : 0), 5, 12, 50);
+    assert.equal(speckle.points.length, 0);
+    assert.ok(speckle.mask.every((value, index) => index % 4 === 3 || value === 0));
+    const region = filters.process(frame((x, y) => x >= 12 && x <= 20 && y >= 8 && y <= 16 ? 255 : 0), 5, 12, 100);
+    assert.ok(region.points.length > 0);
+});
+
+test('activation clamps to the valid luminance range and motion reset preserves calibration', () => {
+    const filters = new CameraFilters(width, height);
+    assert.equal(filters.process(frame(() => 20), 10, -128, 0).activationThreshold, 0);
+    filters.process(frame(() => 20), 10, 12, 50);
+    filters.reset();
+    const result = filters.process(frame(() => 240), 10, 128, 100);
+    assert.equal(result.luminanceMedian, 20);
+    assert.equal(result.activationThreshold, 148);
+    assert.equal(result.points.length, 0);
+    const bright = new CameraFilters(width, height).process(frame(() => 240), 10, 128, 0);
+    assert.equal(bright.activationThreshold, 255);
 });
 
 test('low camera noise is suppressed', () => {
