@@ -1169,7 +1169,7 @@ const webcam = new WebcamInput((point, force) => {
     if (force === 0) return;
     const color = generateColor();
     const intensity = point.strength * force;
-    const dye = intensity * (webcam.mode.value === 'hands' ? 2 : 0.3);
+    const dye = intensity * 0.3;
     color.r *= dye;
     color.g *= dye;
     color.b *= dye;
