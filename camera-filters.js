@@ -22,7 +22,6 @@ class CameraFilters {
         this.width = width;
         this.height = height;
         this.gray = new Float32Array(width * height);
-        this.previousGray = new Float32Array(width * height);
         this.current = new Float32Array(width * height);
         this.previous = new Float32Array(width * height);
         this.binary = new Uint8Array(width * height);
@@ -36,8 +35,9 @@ class CameraFilters {
         this.hasPrevious = false;
     }
 
-    process (rgba, threshold, activationOffset = 12, now = performance.now()) {
-        const { width, height, gray, previousGray, current, previous, binary, histogram, mask } = this;
+    process (rgba, threshold, activationOffset = 12, now = performance.now(), mode = 'motion') {
+        const { width, height, gray, current, previous, binary, histogram, mask } = this;
+        const useLuminance = mode === 'luminance';
         histogram.fill(0);
         for (let i = 0; i < gray.length; i++) {
             const p = i * 4;
@@ -75,9 +75,9 @@ class CameraFilters {
         }
 
         for (let i = 0; i < binary.length; i++) {
-            const moving = this.hasPrevious && Math.abs(current[i] - previous[i]) > threshold;
-            // Include both arriving and departing bright pixels so both sides of movement can stir.
-            binary[i] = moving && Math.max(gray[i], previousGray[i]) >= activationThreshold ? 1 : 0;
+            const active = useLuminance ? gray[i] > activationThreshold
+                : this.hasPrevious && Math.abs(current[i] - previous[i]) > threshold;
+            binary[i] = active ? 1 : 0;
         }
 
         // The median of nine binary pixels is white when at least five neighbors are white.
@@ -101,33 +101,37 @@ class CameraFilters {
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 const i = y * width + x;
-                const signal = Math.abs(current[i] - previous[i]);
-                if (mask[i * 4] === 0 || signal <= threshold) continue;
-                const gx = (-current[i - width - 1] + current[i - width + 1]
-                    - 2 * current[i - 1] + 2 * current[i + 1]
-                    - current[i + width - 1] + current[i + width + 1]) / 8;
-                const gy = (-current[i - width - 1] - 2 * current[i - width] - current[i - width + 1]
-                    + current[i + width - 1] + 2 * current[i + width] + current[i + width + 1]) / 8;
-                const delta = current[i] - previous[i];
+                const signal = useLuminance ? current[i] : Math.abs(current[i] - previous[i]);
+                if (mask[i * 4] === 0 || (!useLuminance && signal <= threshold)) continue;
+                let dx = 0;
+                let dy = 1;
+                if (!useLuminance) {
+                    const gx = (-current[i - width - 1] + current[i - width + 1]
+                        - 2 * current[i - 1] + 2 * current[i + 1]
+                        - current[i + width - 1] + current[i + width + 1]) / 8;
+                    const gy = (-current[i - width - 1] - 2 * current[i - width] - current[i - width + 1]
+                        + current[i + width - 1] + 2 * current[i + width] + current[i + width + 1]) / 8;
+                    // Estimate displacement in camera pixels; do not attenuate movement again by brightness.
+                    const scale = -(current[i] - previous[i]) / (gx * gx + gy * gy + 25);
+                    dx = Math.max(-8, Math.min(8, gx * scale));
+                    dy = Math.max(-8, Math.min(8, -gy * scale));
+                    if (Math.hypot(dx, dy) < 0.001) continue;
+                }
 
                 // One source per 8x8 cell keeps a detailed scene from flooding the GPU.
                 const cell = Math.floor(y / 8) * Math.ceil(width / 8) + Math.floor(x / 8);
-                if (cells.has(cell) && cells.get(cell).signal >= signal) continue;
-                // Local brightness change estimates motion along the image gradient.
-                const scale = -delta / (gx * gx + gy * gy + 25);
-                const dx = Math.max(-2, Math.min(2, gx * scale));
-                const dy = Math.max(-2, Math.min(2, -gy * scale));
+                const score = useLuminance ? signal : signal * Math.hypot(dx, dy);
+                if (cells.has(cell) && cells.get(cell).score >= score) continue;
                 cells.set(cell, {
                     cell,
                     x: (x + 0.5) / width,
                     y: 1 - (y + 0.5) / height,
-                    dx, dy, signal,
-                    strength: Math.min(1, signal / 80)
+                    dx, dy, signal, score,
+                    strength: useLuminance ? Math.max(0.25, Math.min(1, (signal - activationThreshold) / Math.max(1, 255 - activationThreshold))) : 1
                 });
             }
         }
         previous.set(current);
-        previousGray.set(gray);
         this.hasPrevious = true;
         return {
             mask, points: Array.from(cells.values()), luminanceMedian, activationThreshold,

@@ -1169,11 +1169,14 @@ const webcam = new WebcamInput((point, force) => {
     if (force === 0) return;
     const color = generateColor();
     const intensity = point.strength * force;
-    const dye = intensity * 0.3;
+    // Camera impulses span 50 ms; match three 60 Hz mouse dye injections.
+    const dye = intensity * 3;
     color.r *= dye;
     color.g *= dye;
     color.b *= dye;
-    splat(point.x, point.y, point.dx * 500 * intensity, point.dy * 500 * intensity, color);
+    const dx = correctDeltaX(point.dx / webcam.capture.width) * config.SPLAT_FORCE * intensity;
+    const dy = correctDeltaY(point.dy / webcam.capture.height) * config.SPLAT_FORCE * intensity;
+    splat(point.x, point.y, dx, dy, color);
 });
 update();
 

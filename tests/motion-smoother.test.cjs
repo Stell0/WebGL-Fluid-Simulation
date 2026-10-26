@@ -53,6 +53,17 @@ test('a frozen video expires its last force instead of stirring forever', () => 
     assert.equal(smoother.cells.size, 0);
 });
 
+test('force release follows elapsed time even when the render loop is slow', () => {
+    const smoother = new MotionSmoother();
+    smoother.setTargets([source()], 0);
+    smoother.sample(0);
+    smoother.sample(50);
+    smoother.setTargets([], 50);
+    const released = smoother.sample(300)[0];
+    assert.ok(released.strength < 0.02);
+    assert.deepEqual(smoother.sample(600), []);
+});
+
 test('force and dye totals stay consistent at 30, 60, and 120 render frames per second', () => {
     const totals = [30, 60, 120].map(fps => {
         const smoother = new MotionSmoother();

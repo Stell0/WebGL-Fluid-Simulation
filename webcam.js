@@ -12,6 +12,7 @@ class WebcamInput {
         this.status = document.getElementById('camera-status');
         this.smooth = document.getElementById('camera-smooth-on');
         this.smoother = new MotionSmoother();
+        this.luminanceMode = document.getElementById('camera-mode-luminance');
         this.sensitivity = document.getElementById('camera-sensitivity');
         this.activation = document.getElementById('camera-activation');
         this.luminanceStatus = document.getElementById('camera-luminance');
@@ -33,6 +34,14 @@ class WebcamInput {
                 this.lastVideoTime = -1;
             });
         });
+        document.querySelectorAll('input[name="camera-mode"]').forEach(input => {
+            input.addEventListener('change', () => {
+                this.smoother.reset();
+                this.filters?.reset();
+                this.lastVideoTime = -1;
+                this.syncActivationMode();
+            });
+        });
         for (const input of [this.sensitivity, this.activation, this.force]) {
             input.addEventListener('input', () => {
                 document.getElementById(input.id + '-value').value = input === this.activation && Number(input.value) > 0 ? '+' + input.value : input.value;
@@ -44,6 +53,17 @@ class WebcamInput {
             this.lastVideoTime = -1;
         });
         window.addEventListener('pagehide', () => this.stop());
+        this.syncActivationMode();
+    }
+
+    syncActivationMode () {
+        document.getElementById('camera-motion-controls').hidden = this.luminanceMode.checked;
+        document.getElementById('camera-luminance-controls').hidden = !this.luminanceMode.checked;
+        if (this.stream && !this.starting) {
+            this.status.textContent = this.luminanceMode.checked
+                ? 'Luminance active. Bright areas stir even when still. Video stays on this device.'
+                : 'Motion active. Move to stir the fluid. Video stays on this device.';
+        }
     }
 
     async start () {
@@ -84,7 +104,7 @@ class WebcamInput {
             this.button.textContent = 'Stop camera';
             this.button.setAttribute('aria-pressed', 'true');
             document.getElementById('camera-previews').hidden = false;
-            this.status.textContent = 'Camera active. Move to stir the fluid. Video stays on this device.';
+            this.syncActivationMode();
         } catch (error) {
             if (request !== this.request) return;
             const messages = {
@@ -129,7 +149,8 @@ class WebcamInput {
                 this.context.drawImage(this.video, 0, 0, width, height);
                 const rgba = this.context.getImageData(0, 0, width, height).data;
                 const threshold = 2 + (100 - Number(this.sensitivity.value)) * 0.6;
-                const { mask, points, luminanceMedian, activationThreshold, windowSeconds } = this.filters.process(rgba, threshold, Number(this.activation.value), now);
+                const mode = this.luminanceMode.checked ? 'luminance' : 'motion';
+                const { mask, points, luminanceMedian, activationThreshold, windowSeconds } = this.filters.process(rgba, threshold, Number(this.activation.value), now, mode);
                 this.luminanceStatus.textContent = `Median ${Math.round(luminanceMedian)} → threshold ${Math.round(activationThreshold)}/255${windowSeconds < 60 ? ` · ${Math.floor(windowSeconds)}/60 s` : ''}`;
                 this.previewImage.data.set(mask);
                 this.previewContext.putImageData(this.previewImage, 0, 0);

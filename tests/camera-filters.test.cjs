@@ -79,15 +79,65 @@ test('luminance activation follows a full sixty-second window', () => {
     assert.equal(changed.windowSeconds, 60);
 });
 
-test('activation offset excludes dim motion while sensitivity still controls motion strength', () => {
+test('luminance activation offset excludes dim regions without requiring movement', () => {
     const low = new CameraFilters(width, height);
     const high = new CameraFilters(width, height);
     const baseline = frame(() => 20);
     const moving = frame(x => x >= 16 ? 40 : 20);
-    low.process(baseline, 5, 0, 0);
-    high.process(baseline, 5, 40, 0);
-    assert.ok(low.process(moving, 5, 0, 50).points.length > 0);
-    assert.equal(high.process(moving, 5, 40, 50).points.length, 0);
+    low.process(baseline, 5, 0, 0, 'luminance');
+    high.process(baseline, 5, 40, 0, 'luminance');
+    assert.ok(low.process(moving, 5, 0, 50, 'luminance').points.length > 0);
+    assert.equal(high.process(moving, 5, 40, 50, 'luminance').points.length, 0);
+});
+
+test('stationary bright regions continuously activate luminance mode, including the first frame', () => {
+    const filters = new CameraFilters(width, height);
+    const image = frame((x, y) => x >= 10 && x <= 20 && y >= 6 && y <= 16 ? 200 : 20);
+    for (const now of [0, 50, 100]) {
+        const { points } = filters.process(image, 255, 12, now, 'luminance');
+        assert.ok(points.length > 0);
+        assert.ok(points.every(p => p.dx === 0 && p.dy === 1 && p.strength > 0));
+    }
+});
+
+test('motion mode ignores the luminance threshold and gives detected displacement full strength', () => {
+    const filters = new CameraFilters(width, height);
+    filters.process(frame(x => x >= 12 ? 40 : 0), 5, 255, 0, 'motion');
+    const moving = frame(x => x >= 16 ? 40 : 0);
+    const { points } = filters.process(moving, 5, 255, 50, 'motion');
+    assert.ok(points.length > 0);
+    assert.ok(points.every(p => p.strength === 1 && Math.hypot(p.dx, p.dy) > 0));
+    assert.ok(points.every(p => Math.abs(p.dx) <= 8 && Math.abs(p.dy) <= 8));
+    assert.equal(filters.process(moving, 5, 255, 100, 'motion').points.length, 0);
+});
+
+test('motion sources select moving gradients instead of a flat bright interior', () => {
+    const filters = new CameraFilters(width, height);
+    filters.process(frame(x => x >= 8 ? 255 : 0), 10, 12, 0, 'motion');
+    const { points } = filters.process(frame(x => x >= 16 ? 255 : 0), 10, 12, 50, 'motion');
+    assert.ok(points.length > 0);
+    assert.ok(points.every(p => p.dx > 0));
+    assert.ok(points.some(p => p.dx > 2));
+});
+
+test('switching back to motion recalibrates without discarding the luminance window', () => {
+    const filters = new CameraFilters(width, height);
+    const image = frame((x, y) => x >= 10 && x <= 20 && y >= 6 && y <= 16 ? 200 : 20);
+    filters.process(image, 10, 12, 0, 'luminance');
+    const history = filters.luminance;
+    filters.reset();
+    assert.equal(filters.process(image, 10, 12, 50, 'motion').points.length, 0);
+    assert.equal(filters.luminance, history);
+    assert.equal(filters.luminance.samples.length, 2);
+});
+
+test('luminance mode excludes brightness at the cutoff and keeps the spatial median cleanup', () => {
+    const filters = new CameraFilters(width, height);
+    const speckle = filters.process(frame((x, y) => x === 16 && y === 12 ? 255 : 0), 10, 12, 0, 'luminance');
+    assert.equal(speckle.points.length, 0);
+    const off = filters.process(frame(() => 255), 10, 255, 50, 'luminance');
+    assert.equal(off.activationThreshold, 255);
+    assert.equal(off.points.length, 0);
 });
 
 test('activation mask is opaque black or white on every pixel', () => {
@@ -103,14 +153,22 @@ test('activation mask is opaque black or white on every pixel', () => {
     }
 });
 
-test('spatial median removes isolated bright speckles and preserves broad moving regions', () => {
+test('spatial median removes isolated luminance speckles and preserves broad bright regions', () => {
     const filters = new CameraFilters(width, height);
-    filters.process(frame(() => 0), 5, 12, 0);
-    const speckle = filters.process(frame((x, y) => x === 16 && y === 12 ? 255 : 0), 5, 12, 50);
+    filters.process(frame(() => 0), 5, 12, 0, 'luminance');
+    const speckle = filters.process(frame((x, y) => x === 16 && y === 12 ? 255 : 0), 5, 12, 50, 'luminance');
     assert.equal(speckle.points.length, 0);
     assert.ok(speckle.mask.every((value, index) => index % 4 === 3 || value === 0));
-    const region = filters.process(frame((x, y) => x >= 12 && x <= 20 && y >= 8 && y <= 16 ? 255 : 0), 5, 12, 100);
+    const region = filters.process(frame((x, y) => x >= 12 && x <= 20 && y >= 8 && y <= 16 ? 255 : 0), 5, 12, 100, 'luminance');
     assert.ok(region.points.length > 0);
+});
+
+test('one-pixel camera movement remains detectable after the binary median', () => {
+    const filters = new CameraFilters(width, height);
+    filters.process(frame(x => x >= 16 ? 255 : 0), 23, 12, 0, 'motion');
+    const { points } = filters.process(frame(x => x >= 17 ? 255 : 0), 23, 12, 50, 'motion');
+    assert.ok(points.length > 0);
+    assert.ok(points.every(p => p.dx > 0 && p.strength === 1));
 });
 
 test('activation clamps to the valid luminance range and motion reset preserves calibration', () => {

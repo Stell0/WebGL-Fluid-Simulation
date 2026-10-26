@@ -31,13 +31,14 @@ class MotionSmoother {
             return [];
         }
         // Limit the impulse after a stalled render loop instead of accumulating missed frames.
-        const dt = Math.max(0, Math.min(0.05, (now - this.lastUpdate) / 1000));
+        const elapsed = Math.max(0, (now - this.lastUpdate) / 1000);
+        const dt = Math.min(0.05, elapsed);
         this.lastUpdate = now;
         if (!dt) return [];
         const fresh = this.lastSample !== null && now - this.lastSample <= 150;
         for (const [id, cell] of this.cells) {
             const target = fresh ? cell.target : null;
-            const alpha = 1 - Math.exp(-dt / (target ? 0.1 : 0.08));
+            const alpha = 1 - Math.exp(-elapsed / (target ? 0.1 : 0.08));
             const strength = target ? target.strength : 0;
             cell.vx += ((target ? target.dx * strength : 0) - cell.vx) * alpha;
             cell.vy += ((target ? target.dy * strength : 0) - cell.vy) * alpha;
