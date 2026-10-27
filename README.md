@@ -2,6 +2,18 @@
 
 Webcam-controlled fork of [Pavel Dobryakov's WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation).
 
+## What this fork adds
+
+The original project lets you stir fluid with a mouse or touchscreen. This fork also turns a live webcam image into fluid forces and color, while keeping the original WebGL simulation, effects, and mouse/touch controls.
+
+- **Webcam activation modes:** use **Motion** to stir with movement, or **Luminance** to continuously generate upward currents from bright areas, even when the scene is still.
+- **Adaptive brightness filtering:** a rolling **60-second median** provides the luminance baseline. An adjustable activation offset selects bright regions, and a **3×3 spatial median** cleans the black-and-white activation mask.
+- **Optional smooth stirring:** **Smooth/Direct** radio buttons enable or disable gradual force changes, continuous frame-based injection, and gentle fade-out when activity stops.
+- **Adjustable input strength:** motion sensitivity, luminance activation, and force controls let you tune the response. Camera force and dye are calibrated against mouse input at **1×**.
+- **Camera controls and previews:** enable/stop the camera, see the mirrored video and activation mask, and hide or reopen the webcam panel together with the main fluid controls.
+
+Camera processing runs locally in the browser, without additional libraries or a build step. No audio is requested, and video is neither uploaded nor recorded.
+
 ## Run locally
 
 No build or dependencies are required. From this directory run:
